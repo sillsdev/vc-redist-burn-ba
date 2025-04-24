@@ -4,14 +4,10 @@ using WixToolset.Mba.Core;
 
 namespace SIL.VCRedistBurnBA
 {
-    public class CustomBootstrapperApplication : BootstrapperApplication
+    public class CustomBootstrapperApplication(IEngine engine) : BootstrapperApplication(engine)
     {
         private const int kDefaultMinMinorVersion = 38;
         private int _minMinorVersion;
-
-        public CustomBootstrapperApplication(IEngine engine) : base(engine)
-        {
-        }
 
         protected override void Run()
         {
@@ -32,14 +28,21 @@ namespace SIL.VCRedistBurnBA
                 engine.Log(LogLevel.Standard, $"VC++ Redistributable 14.{_minMinorVersion} or " +
                                               "later not detected. Proceeding with installation.");
 
-                var pathToInstaller = VcRedistHelper.DownloadInstaller();
-                if (pathToInstaller == null)
+                string tempDir = Path.Combine(Path.GetTempPath(), "VC_Redist_Download");
+                Directory.CreateDirectory(tempDir);
+                string pathToInstaller;
+                try
                 {
-                    engine.Log(LogLevel.Error, "Failed to download VC++ Redistributable installer.");
+                     pathToInstaller = VcRedistHelper.DownloadInstallerAsync(tempDir).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    engine.Log(LogLevel.Error, $"Failed to download VC++ Redistributable installer. Error: {ex.Message}");
                     engine.SetVariableString("VcRedistInstallerPath", "", false);
                     engine.Quit(1);
                     return;
                 }
+
                 engine.SetVariableString("VcRedistInstallerPath", pathToInstaller, false);
             }
             else
